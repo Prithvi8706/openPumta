@@ -1,13 +1,12 @@
 'use client';
-// add a changing avatar in the middle of the pomodoro
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSubjectTimerStore } from '@/store/useSubjectStore';
 import { usePomodoroStore } from '@/store/usePomodoroStore';
+import { useTimerEngine } from '@/hooks/useTimerEngine';
 import ClockCircle from '../components/pomodoro/ClockCircle';
-import ClockTime from '../components/pomodoro/ClockTime';
 import { ConvertSecsToTimer, pad } from '@/lib/utils';
-import { IoIosPause, IoIosPlay, IoIosRefresh } from 'react-icons/io';
+import { IoIosPause, IoIosPlay, IoIosRefresh, IoIosSkipForward, IoIosArrowBack } from 'react-icons/io';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -15,48 +14,48 @@ import { useSubjects, useSubjectTimer } from '@/hooks/useSubjects';
 import { useAuthStore } from '@/store/useAuthStore';
 
 function PomodoroPage() {
-  const { user } = useAuthStore();
   const { data: Subjects = [], isLoading } = useSubjects();
-  const { timerRunningSubjectId, stopLocalTimer, activeSeconds, tick } = useSubjectTimerStore();
-  const { endTimer } = useSubjectTimer();
-  const { 
-    mode, 
-    phase, 
-    workDuration, 
-    breakDuration, 
-    breakElapsedSeconds, 
-    resetThreshold,
-    tickBreak, 
-    togglePhase, 
-    resetBreak 
-  } = usePomodoroStore();
+  const { timerRunningSubjectId } = useSubjectTimerStore();
+  const { startTimer, endTimer } = useSubjectTimer();
+  const store = usePomodoroStore();
+  const { remainingMs, elapsedMs, progress, phase, mode, status } = useTimerEngine();
   const router = useRouter();
 
-  // Unified Interval for Work and Break
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (timerRunningSubjectId && phase === 'WORK') {
-        tick();
-      } else if (phase === 'BREAK') {
-        tickBreak();
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [timerRunningSubjectId, phase, tick, tickBreak]);
+  const runningSubject = Subjects.find((subject) => subject.id === timerRunningSubjectId);
 
-  const stopTimer = async () => {
-    if (timerRunningSubjectId) {
-      try {
-        await endTimer.mutateAsync(timerRunningSubjectId);
-      } catch (error) {
-        console.error('Failed to end timer:', error);
+  // Sync Timer Engine status with Backend Logging
+  const handleToggleTimer = async () => {
+    if (status === 'RUNNING') {
+      store.pause();
+      // If we are in WORK phase, pause() transitions to BREAK automatically and stays RUNNING
+      // But we still need to end the subject timer if it was running
+      if (timerRunningSubjectId && phase === 'WORK') {
+         await endTimer.mutateAsync(timerRunningSubjectId);
       }
-      stopLocalTimer();
+    } else {
+      if (!timerRunningSubjectId) {
+        store.resume();
+      } else {
+        await startTimer.mutateAsync(timerRunningSubjectId);
+        store.resume();
+      }
     }
   };
 
-  const handlePauseAndExit = async () => {
-    await stopTimer();
+  const handleReset = () => {
+    store.reset();
+  };
+
+  const handleSkip = () => {
+    // Pass progress (0.0 to 1.0) for threshold check
+    store.completePhase(progress / 100);
+  };
+
+  const handleBack = async () => {
+    if (status === 'RUNNING' && timerRunningSubjectId && phase === 'WORK') {
+      await endTimer.mutateAsync(timerRunningSubjectId);
+    }
+    // We don't pause the engine here, just navigate back
     router.push('/');
   };
 
@@ -68,147 +67,103 @@ function PomodoroPage() {
     );
   }
 
-  const runningSubject = Subjects.find((subject) => subject.id === timerRunningSubjectId);
-
-  // Time Calculations
-  let sessionSecs = 0;
+  // Formatting for display
+  const displayTime = ConvertSecsToTimer({ workSecs: Math.floor(remainingMs / 1000) });
+  
+  // Daily Goal Calculation
   let totalWorkedSecs = 0;
   let goalWorkSecs = 0;
-  let continuousWorkSecs = 0;
-
   if (runningSubject) {
-    const activeLog = runningSubject.subjectLogs?.find((log) => !log.endedAt);
-    const pastLogsDuration =
-      runningSubject.subjectLogs?.reduce((acc, log) => acc + (log.duration || 0), 0) || 0;
-
-    sessionSecs = activeLog
-      ? Math.floor((new Date().getTime() - new Date(activeLog.startedAt).getTime()) / 1000)
-      : activeSeconds;
-
-    totalWorkedSecs = pastLogsDuration + sessionSecs;
+    const pastLogsDuration = runningSubject.subjectLogs?.reduce((acc, log) => acc + (log.duration || 0), 0) || 0;
+    totalWorkedSecs = pastLogsDuration + (phase === 'WORK' ? Math.floor(elapsedMs / 1000) : 0);
     goalWorkSecs = runningSubject.goalWorkSecs || 0;
-
-    // Calculate continuous work time for Pomodoro reset logic
-    const sortedLogs = [...(runningSubject.subjectLogs || [])].sort((a, b) => 
-      new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
-    );
-
-    let continuous = 0;
-    for (let i = 0; i < sortedLogs.length; i++) {
-      const current = sortedLogs[i];
-      let duration = current.duration || 0;
-      if (!current.endedAt) {
-        duration = Math.floor((new Date().getTime() - new Date(current.startedAt).getTime()) / 1000);
-      }
-
-      continuous += duration;
-
-      const nextOldest = sortedLogs[i+1];
-      if (nextOldest && nextOldest.endedAt) {
-        const gap = (new Date(current.startedAt).getTime() - new Date(nextOldest.endedAt).getTime()) / 1000;
-        if (gap > resetThreshold) {
-          break; // Gap too large, end of continuous session
-        }
-      }
-    }
-    continuousWorkSecs = continuous;
   }
+  const goalProgressPercent = goalWorkSecs ? Math.min(100, (totalWorkedSecs / goalWorkSecs) * 100) : 0;
 
-  // Phase & Mode Logic
-  let displayTime = { hours: 0, minutes: 0, seconds: 0 };
-  let circlePercent = 0;
-  let bottomText = "";
-  let subText = "";
-  let circleColor = "var(--primary)";
-
-  if (mode === 'POMODORO') {
-    if (phase === 'WORK') {
-      const remainingWork = Math.max(0, workDuration - continuousWorkSecs);
-      displayTime = ConvertSecsToTimer({ workSecs: remainingWork });
-      circlePercent = (continuousWorkSecs / workDuration) * 100;
-      bottomText = "WORK PHASE";
-      subText = runningSubject ? `Session: ${pad(ConvertSecsToTimer({workSecs: sessionSecs}).minutes)}:${pad(ConvertSecsToTimer({workSecs: sessionSecs}).seconds)}` : "Select a subject to start";
-      circleColor = "var(--primary)";
-      
-      // Auto-transition to Break
-      if (remainingWork === 0 && timerRunningSubjectId) {
-        stopTimer(); // Just stop the timer, don't exit
-        togglePhase();
-      }
-    } else {
-      const remainingBreak = Math.max(0, breakDuration - breakElapsedSeconds);
-      displayTime = ConvertSecsToTimer({ workSecs: remainingBreak });
-      circlePercent = (breakElapsedSeconds / breakDuration) * 100;
-      bottomText = "BREAK PHASE";
-      subText = "Time to rest!";
-      circleColor = "#22c55e"; // Green for break
-
-      // Auto-transition to Work
-      if (remainingBreak === 0) {
-        togglePhase();
-      }
+  // Phase Specifics
+  const getPhaseColor = () => {
+    if (mode === 'STOPWATCH') return 'var(--primary)';
+    switch (phase) {
+      case 'WORK': return 'var(--primary)';
+      case 'SHORT_BREAK':
+      case 'LONG_BREAK': return '#22c55e'; // Green
+      default: return 'var(--primary)';
     }
-  } else {
-    // NORMAL MODE (Stopwatch Session)
-    displayTime = ConvertSecsToTimer({ workSecs: sessionSecs });
-    circlePercent = goalWorkSecs ? (totalWorkedSecs / goalWorkSecs) * 100 : 0;
-    bottomText = "DEEP WORK";
-    subText = `Daily Total: ${pad(ConvertSecsToTimer({workSecs: totalWorkedSecs}).hours)}:${pad(ConvertSecsToTimer({workSecs: totalWorkedSecs}).minutes)}`;
-  }
+  };
 
-  const progressBarPercent = goalWorkSecs ? (totalWorkedSecs / goalWorkSecs) * 100 : 0;
+  const getPhaseLabel = () => {
+    if (mode === 'STOPWATCH') return 'DEEP WORK';
+    switch (phase) {
+      case 'WORK': return 'WORK PHASE';
+      case 'SHORT_BREAK': return 'SHORT BREAK';
+      case 'LONG_BREAK': return 'LONG BREAK';
+      default: return 'IDLE';
+    }
+  };
 
   return (
-    <section className="flex flex-col justify-center items-center h-screen w-screen gap-0">
+    <section className="flex flex-col justify-center items-center h-screen w-screen gap-0 relative">
+      <Button 
+        onClick={handleBack} 
+        variant="ghost" 
+        className="absolute top-8 left-8 rounded-full h-12 w-12 p-0"
+      >
+        <IoIosArrowBack size={24} />
+      </Button>
+
       {runningSubject && <h1 className="text-5xl font-bold mb-4">{runningSubject.name}</h1>}
       
-      <ClockCircle percent={circlePercent} size="lg" color={circleColor}>
+      <ClockCircle percent={progress} size="lg" color={getPhaseColor()}>
         <div className="flex flex-col items-center">
           <div className="text-7xl font-bold text-primary mb-2">
             {pad(displayTime.hours)}:{pad(displayTime.minutes)}:{pad(displayTime.seconds)}
           </div>
           <div className="text-2xl font-semibold text-muted-foreground uppercase tracking-widest">
-            {bottomText}
+            {getPhaseLabel()}
           </div>
           <div className="text-lg font-medium text-muted-foreground/60 mt-1">
-            {subText}
+            {mode === 'POMODORO' ? `Completed: ${store.completedPomodoros}` : `Session: ${pad(Math.floor(elapsedMs / 3600))}:${pad(Math.floor((elapsedMs % 3600000) / 60000))}`}
           </div>
         </div>
       </ClockCircle>
 
-      {runningSubject && (
+      {runningSubject && store.showProgressBar && (
         <div className="w-1/2 mb-12">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Progress value={progressBarPercent} className="h-4" />
+              <Progress value={goalProgressPercent} className="h-4" />
             </TooltipTrigger>
             <TooltipContent>
               <div className="font-semibold text-lg">
-                Goal: {pad(ConvertSecsToTimer({workSecs: goalWorkSecs}).hours)}:{pad(ConvertSecsToTimer({workSecs: goalWorkSecs}).minutes)}
+                Daily Goal: {pad(Math.floor(goalWorkSecs / 3600))}:{pad(Math.floor((goalWorkSecs % 3600) / 60))}
               </div>
             </TooltipContent>
           </Tooltip>
         </div>
       )}
 
-      <div className="flex items-center gap-12">
-        {mode === 'POMODORO' && (
-           <Button 
-            onClick={togglePhase} 
-            variant="outline" 
-            className="rounded-full w-16 h-16"
-          >
-            <IoIosRefresh size={32} />
+      <div className="flex items-center gap-8">
+        {/* Hide Reset in Work phase */}
+        {phase !== 'WORK' && (
+          <Button onClick={handleReset} variant="outline" className="rounded-full w-14 h-14">
+            <IoIosRefresh size={24} />
           </Button>
         )}
-        
+
         <Button 
-          onClick={handlePauseAndExit} 
+          onClick={handleToggleTimer} 
           variant="secondary" 
-          className="rounded-full w-24 h-24 shadow-lg hover:scale-105 transition-transform"
+          className="rounded-full w-24 h-24 shadow-lg hover:scale-105 transition-all"
         >
-          <IoIosPause size={48} />
+          {status === 'RUNNING' && phase === 'WORK' ? <IoIosPause size={48} /> : (status === 'RUNNING' ? <IoIosPause size={48} /> : <IoIosPlay size={48} />)}
         </Button>
+
+        {/* Hide Skip in Work phase, or show only in Break */}
+        {mode === 'POMODORO' && phase !== 'WORK' && (
+          <Button onClick={handleSkip} variant="outline" className="rounded-full w-14 h-14">
+            <IoIosSkipForward size={24} />
+          </Button>
+        )}
       </div>
     </section>
   );

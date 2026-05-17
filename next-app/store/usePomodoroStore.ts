@@ -1,53 +1,139 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-export type TimerMode = 'POMODORO' | 'NORMAL';
-export type PomodoroPhase = 'WORK' | 'BREAK';
+export type TimerMode = 'POMODORO' | 'STOPWATCH';
+export type PomodoroPhase = 'WORK' | 'SHORT_BREAK' | 'LONG_BREAK' | 'IDLE';
+export type TimerStatus = 'IDLE' | 'RUNNING' | 'PAUSED';
 
 interface PomodoroState {
-  // Settings
+  // Config
   mode: TimerMode;
-  workDuration: number; // in seconds
-  breakDuration: number; // in seconds
-  resetThreshold: number; // in seconds - if paused longer than this, reset pomodoro
+  showProgressBar: boolean;
+  workDuration: number;       // in ms
+  shortBreakDuration: number; // in ms
+  longBreakDuration: number;  // in ms
+  longBreakInterval: number;  // e.g., 4 pomodoros before long break
   
-  // Session State
+  // State Machine
+  status: TimerStatus;
   phase: PomodoroPhase;
-  breakElapsedSeconds: number;
+  completedPomodoros: number;
+  
+  // Timestamp Anchor Points (For drift-free calculation)
+  startTimestamp: number | null; 
+  accumulatedMs: number;
   
   // Actions
   setMode: (mode: TimerMode) => void;
+  setShowProgressBar: (show: boolean) => void;
+  setDurations: (work: number, shortBreak: number, longBreak: number) => void;
+  
+  // Engine Actions
+  start: () => void;
+  pause: () => void;
+  resume: () => void;
+  reset: () => void;
+  completePhase: (progress?: number) => void; // progress from 0 to 1
   setPhase: (phase: PomodoroPhase) => void;
-  setDurations: (workSecs: number, breakSecs: number) => void;
-  setResetThreshold: (secs: number) => void;
-  togglePhase: () => void;
-  tickBreak: () => void;
-  resetBreak: () => void;
 }
 
 export const usePomodoroStore = create<PomodoroState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
+      // Defaults
       mode: 'POMODORO',
-      workDuration: 1500, // 25 minutes default
-      breakDuration: 300,  // 5 minutes default
-      resetThreshold: 10, // 10 seconds default
+      showProgressBar: true,
+      workDuration: 25 * 60 * 1000,
+      shortBreakDuration: 5 * 60 * 1000,
+      longBreakDuration: 15 * 60 * 1000,
+      longBreakInterval: 4,
+      
+      status: 'IDLE',
       phase: 'WORK',
-      breakElapsedSeconds: 0,
+      completedPomodoros: 0,
+      
+      startTimestamp: null,
+      accumulatedMs: 0,
 
-      setMode: (mode) => set({ mode }),
-      setPhase: (phase) => set({ phase }),
-      setDurations: (workDuration, breakDuration) => set({ workDuration, breakDuration }),
-      setResetThreshold: (resetThreshold) => set({ resetThreshold }),
-      togglePhase: () => set((state) => ({ 
-        phase: state.phase === 'WORK' ? 'BREAK' : 'WORK',
-        breakElapsedSeconds: 0 
-      })),
-      tickBreak: () => set((state) => ({ breakElapsedSeconds: state.breakElapsedSeconds + 1 })),
-      resetBreak: () => set({ breakElapsedSeconds: 0 }),
+      // Config Modifiers
+      setMode: (mode) => set({ mode, status: 'IDLE', accumulatedMs: 0, startTimestamp: null }),
+      setShowProgressBar: (showProgressBar) => set({ showProgressBar }),
+      setDurations: (work, shortBreak, longBreak) => 
+        set({ workDuration: work, shortBreakDuration: shortBreak, longBreakDuration: longBreak }),
+
+      // Engine
+      start: () => set({ 
+        status: 'RUNNING', 
+        startTimestamp: Date.now(), 
+        accumulatedMs: 0 
+      }),
+      
+      pause: () => {
+        const { startTimestamp, accumulatedMs, phase, mode } = get();
+        
+        // In Pomodoro mode, pausing WORK phase immediately starts a BREAK
+        if (mode === 'POMODORO' && phase === 'WORK') {
+          get().completePhase(0); // Pass 0 as it's an interruption, don't increment completed
+          return;
+        }
+
+        if (startTimestamp) {
+          set({
+            status: 'PAUSED',
+            accumulatedMs: accumulatedMs + (Date.now() - startTimestamp),
+            startTimestamp: null
+          });
+        }
+      },
+      
+      resume: () => set({ 
+        status: 'RUNNING', 
+        startTimestamp: Date.now() 
+      }),
+      
+      reset: () => set({ 
+        status: 'IDLE', 
+        startTimestamp: null, 
+        accumulatedMs: 0 
+      }),
+
+      setPhase: (phase) => set({
+        phase,
+        status: 'IDLE',
+        startTimestamp: null,
+        accumulatedMs: 0
+      }),
+
+      completePhase: (progress = 1) => {
+        const { phase, completedPomodoros, longBreakInterval } = get();
+        
+        let nextCompleted = completedPomodoros;
+        // Only increment if 95% complete
+        if (phase === 'WORK' && progress >= 0.95) {
+          nextCompleted += 1;
+        }
+
+        if (phase === 'WORK') {
+          const nextPhase = nextCompleted % longBreakInterval === 0 && nextCompleted !== 0 ? 'LONG_BREAK' : 'SHORT_BREAK';
+          set({
+            phase: nextPhase,
+            completedPomodoros: nextCompleted,
+            status: 'RUNNING', // Automatically start the break
+            startTimestamp: Date.now(),
+            accumulatedMs: 0
+          });
+        } else {
+          set({
+            phase: 'WORK',
+            status: 'RUNNING', // Automatically start the work
+            startTimestamp: Date.now(),
+            accumulatedMs: 0
+          });
+        }
+      }
     }),
     {
-      name: 'pomodoro-storage',
+      name: 'timer-engine-storage',
       storage: createJSONStorage(() => localStorage),
     },
   ),

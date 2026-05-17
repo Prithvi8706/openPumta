@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useSubjectTimerStore } from '@/store/useSubjectStore';
+import { usePomodoroStore } from '@/store/usePomodoroStore';
 import {
   useSubjects,
   useCreateSubject,

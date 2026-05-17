@@ -1,5 +1,5 @@
 import React from 'react';
-import { usePomodoroStore } from '@/store/usePomodoroStore';
+import { usePomodoroStore, TimerMode } from '@/store/usePomodoroStore';
 import { ConvertSecsToTimer, ConvertTimerToSecs } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -19,43 +19,51 @@ import { Label } from '@/components/ui/label';
 import { Field, FieldContent, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Switch } from '@/components/ui/switch';
 
-export function TimerSwitchDescription() {
-  const { mode, setMode } = usePomodoroStore();
+export function TimerSettingsSwitches() {
+  const { mode, setMode, showProgressBar, setShowProgressBar } = usePomodoroStore();
   return (
-    <Field orientation="horizontal" className="max-w-sm">
-      <FieldContent>
-        <FieldLabel htmlFor="switch-focus-mode">Pomodoro Mode</FieldLabel>
-        <FieldDescription>
-          {mode === 'POMODORO' 
-            ? "Cycles between work and breaks." 
-            : "Continuous tracking with session stopwatch."}
-        </FieldDescription>
-      </FieldContent>
-      <Switch
-        id="switch-focus-mode"
-        checked={mode === 'POMODORO'}
-        onCheckedChange={(checked) => setMode(checked ? 'POMODORO' : 'NORMAL')}
-      />
-    </Field>
+    <div className="flex flex-col gap-4">
+      <Field orientation="horizontal" className="max-w-sm">
+        <FieldContent>
+          <FieldLabel htmlFor="switch-focus-mode">Pomodoro Mode</FieldLabel>
+          <FieldDescription>
+            {mode === 'POMODORO' 
+              ? "Cycles between work and breaks." 
+              : "Continuous stopwatch tracking."}
+          </FieldDescription>
+        </FieldContent>
+        <Switch
+          id="switch-focus-mode"
+          checked={mode === 'POMODORO'}
+          onCheckedChange={(checked) => setMode(checked ? 'POMODORO' : 'STOPWATCH')}
+        />
+      </Field>
+      
+      <Field orientation="horizontal" className="max-w-sm">
+        <FieldContent>
+          <FieldLabel htmlFor="switch-progress-bar">Show progress bar</FieldLabel>
+          <FieldDescription>
+            Display the daily goal progress bar below the timer.
+          </FieldDescription>
+        </FieldContent>
+        <Switch
+          id="switch-progress-bar"
+          checked={showProgressBar}
+          onCheckedChange={(checked) => setShowProgressBar(checked)}
+        />
+      </Field>
+    </div>
   );
 }
 
 type Props = { child: React.ReactNode };
 
 const ClockDialogBox = (props: Props) => {
-  const { setDurations, workDuration, breakDuration } = usePomodoroStore();
+  const { setDurations, workDuration, shortBreakDuration, longBreakDuration } = usePomodoroStore();
 
-  const {
-    hours: workHours,
-    minutes: workMinutes,
-    seconds: workSeconds,
-  } = ConvertSecsToTimer({ workSecs: workDuration });
-
-  const {
-    hours: breakHours,
-    minutes: breakMinutes,
-    seconds: breakSeconds,
-  } = ConvertSecsToTimer({ workSecs: breakDuration });
+  const work = ConvertSecsToTimer({ workSecs: Math.floor(workDuration / 1000) });
+  const shortBreak = ConvertSecsToTimer({ workSecs: Math.floor(shortBreakDuration / 1000) });
+  const longBreak = ConvertSecsToTimer({ workSecs: Math.floor(longBreakDuration / 1000) });
 
   return (
     <>
@@ -69,89 +77,65 @@ const ClockDialogBox = (props: Props) => {
               e.preventDefault();
 
               const formData = new FormData(e.currentTarget);
-              const workHr = Number(formData.get('workHr')) || 0;
-              const workMin = Number(formData.get('workMin')) || 0;
-              const workSec = Number(formData.get('workSec')) || 0;
+              
+              const getMs = (prefix: string) => {
+                const h = Number(formData.get(`${prefix}Hr`)) || 0;
+                const m = Number(formData.get(`${prefix}Min`)) || 0;
+                const s = Number(formData.get(`${prefix}Sec`)) || 0;
+                return (h * 3600 + m * 60 + s) * 1000;
+              };
 
-              const breakHr = Number(formData.get('breakHr')) || 0;
-              const breakMin = Number(formData.get('breakMin')) || 0;
-              const breakSec = Number(formData.get('breakSec')) || 0;
+              const newWork = getMs('work') || workDuration;
+              const newShort = getMs('short') || shortBreakDuration;
+              const newLong = getMs('long') || longBreakDuration;
 
-              const newWorkSecs = ConvertTimerToSecs({
-                hr: workHr,
-                min: workMin,
-                sec: workSec,
-              });
-
-              const newBreakSecs = ConvertTimerToSecs({
-                hr: breakHr,
-                min: breakMin,
-                sec: breakSec,
-              });
-
-              setDurations(
-                newWorkSecs || workDuration,
-                newBreakSecs || breakDuration,
-              );
+              setDurations(newWork, newShort, newLong);
             }}
           >
             <DialogHeader>
               <DialogTitle>
                 <h1 className="text-2xl font-bold mb-4">Timer settings</h1>
               </DialogTitle>
-              <TimerSwitchDescription />
+              <TimerSettingsSwitches />
             </DialogHeader>
-            <div className="grid gap-4 mt-4">
+            <div className="grid gap-4 mt-4 max-h-[40vh] overflow-y-auto px-1">
+              {/* Work Duration */}
               <div className="grid gap-3">
-                <Label htmlFor="work-time">Work Duration</Label>
+                <Label>Work Duration</Label>
                 <div className="flex items-center gap-2">
-                  <Input name="workHr" placeholder="hh" type="number" min={0} defaultValue={workHours} />
+                  <Input name="workHr" placeholder="hh" type="number" min={0} defaultValue={work.hours} />
                   <span>:</span>
-                  <Input
-                    name="workMin"
-                    placeholder="mm"
-                    type="number"
-                    min={0}
-                    max={60}
-                    defaultValue={workMinutes}
-                  />
+                  <Input name="workMin" placeholder="mm" type="number" min={0} max={59} defaultValue={work.minutes} />
                   <span>:</span>
-                  <Input
-                    name="workSec"
-                    placeholder="ss"
-                    defaultValue={workSeconds}
-                    min={0}
-                    max={60}
-                    type="number"
-                  />
+                  <Input name="workSec" placeholder="ss" type="number" min={0} max={59} defaultValue={work.seconds} />
                 </div>
               </div>
+              
+              {/* Short Break */}
               <div className="grid gap-3">
-                <Label htmlFor="break-time">Break Duration</Label>
+                <Label>Short Break</Label>
                 <div className="flex items-center gap-2">
-                  <Input name="breakHr" placeholder="hh" type="number" min={0} defaultValue={breakHours} />
+                  <Input name="shortHr" placeholder="hh" type="number" min={0} defaultValue={shortBreak.hours} />
                   <span>:</span>
-                  <Input
-                    name="breakMin"
-                    placeholder="mm"
-                    type="number"
-                    min={0}
-                    max={60}
-                    defaultValue={breakMinutes}
-                  />
+                  <Input name="shortMin" placeholder="mm" type="number" min={0} max={59} defaultValue={shortBreak.minutes} />
                   <span>:</span>
-                  <Input
-                    name="breakSec"
-                    placeholder="ss"
-                    defaultValue={breakSeconds}
-                    min={0}
-                    max={60}
-                    type="number"
-                  />
+                  <Input name="shortSec" placeholder="ss" type="number" min={0} max={59} defaultValue={shortBreak.seconds} />
+                </div>
+              </div>
+
+              {/* Long Break */}
+              <div className="grid gap-3">
+                <Label>Long Break</Label>
+                <div className="flex items-center gap-2">
+                  <Input name="longHr" placeholder="hh" type="number" min={0} defaultValue={longBreak.hours} />
+                  <span>:</span>
+                  <Input name="longMin" placeholder="mm" type="number" min={0} max={59} defaultValue={longBreak.minutes} />
+                  <span>:</span>
+                  <Input name="longSec" placeholder="ss" type="number" min={0} max={59} defaultValue={longBreak.seconds} />
                 </div>
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="mt-6">
               <DialogClose asChild>
                 <Button variant="outline">Cancel</Button>
               </DialogClose>
