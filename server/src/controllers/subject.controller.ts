@@ -31,7 +31,7 @@ const getAllSubject = asyncHandler(async (req: Request, res: Response) => {
 });
 
 const createSubject = asyncHandler(async (req: Request, res: Response) => {
-  const { name, goalWorkSecs, color } = req.body;
+  const { name, goalWorkSecs, color, habits } = req.body;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const userId = (req as any).user?.id;
 
@@ -45,13 +45,23 @@ const createSubject = asyncHandler(async (req: Request, res: Response) => {
       userId: Number(userId),
       goalWorkSecs: goalWorkSecs !== undefined ? Number(goalWorkSecs) : 0,
       ...(color !== undefined && { color }),
+      ...(habits && Array.isArray(habits) && habits.length > 0
+        ? {
+            habits: {
+              connect: habits.map((id: number) => ({ id })),
+            },
+          }
+        : {}),
+    },
+    include: {
+      habits: true,
     },
   });
   res.status(200).json(new ApiResponse(200, subject, 'Subject Created successfully'));
 });
 
 const updateSubject = asyncHandler(async (req: Request, res: Response) => {
-  const { name, goalWorkSecs, color } = req.body;
+  const { name, goalWorkSecs, color, habits } = req.body;
   const { id } = req.params;
   const idNum = Number(id);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -78,6 +88,16 @@ const updateSubject = asyncHandler(async (req: Request, res: Response) => {
       ...(name !== undefined && { name }),
       ...(goalWorkSecs !== undefined && { goalWorkSecs: Number(goalWorkSecs) }),
       ...(color !== undefined && { color }),
+      ...(habits !== undefined && Array.isArray(habits)
+        ? {
+            habits: {
+              set: habits.map((hId: number) => ({ id: hId })),
+            },
+          }
+        : {}),
+    },
+    include: {
+      habits: true,
     },
   });
 
@@ -276,6 +296,9 @@ const getAllSubjectsWithLogs = asyncHandler(async (req: Request, res: Response) 
       deleted: false,
     },
     include: {
+      habits: {
+        where: { deleted: false },
+      },
       subjectLogs: {
         where: {
           deleted: false,

@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Subject } from './Subjects/columns';
 import { Button } from '@/components/ui/button';
@@ -9,8 +9,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useTimerStore } from '@/store/useTimerStore';
 import {
   useSubjects,
@@ -18,10 +21,11 @@ import {
   useUpdateSubject,
   useDeleteSubject,
 } from '@/hooks/useSubjects';
+import { useHabits } from '@/hooks/useHabits';
 import { useAuthStore } from '@/store/useAuthStore';
-import { ConvertSecsToTimer } from '@/lib/utils';
+import { ConvertSecsToTimer, cn } from '@/lib/utils';
 import { IoIosPlay, IoIosPause } from 'react-icons/io';
-import { MoreVertical } from 'lucide-react';
+import { MoreVertical, Check } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,9 +33,21 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+const PRESET_COLORS = [
+  '#f97316', // Orange
+  '#ef4444', // Red
+  '#22c55e', // Green
+  '#3b82f6', // Blue
+  '#8b5cf6', // Purple
+  '#ec4899', // Pink
+  '#06b6d4', // Cyan
+  '#71717a', // Zinc
+];
+
 function Subjects() {
   const { user } = useAuthStore();
   const { data: Subjects = [] } = useSubjects();
+  const { data: habits = [] } = useHabits();
   const createSubject = useCreateSubject();
   const updateSubjectMutation = useUpdateSubject();
   const deleteSubjectMutation = useDeleteSubject();
@@ -41,10 +57,24 @@ function Subjects() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+
+  // States for Add Modal
   const [newSubjectColor, setNewSubjectColor] = useState('#f97316');
+  const [newSubjectHabits, setNewSubjectHabits] = useState<number[]>([]);
+
+  // States for Edit Modal
   const [editSubjectColor, setEditSubjectColor] = useState('#f97316');
+  const [editSubjectHabits, setEditSubjectHabits] = useState<number[]>([]);
 
   const router = useRouter();
+
+  // Reset Add Modal state when closed
+  useEffect(() => {
+    if (!isAddDialogOpen) {
+      setNewSubjectColor('#f97316');
+      setNewSubjectHabits([]);
+    }
+  }, [isAddDialogOpen]);
 
   const handlePlayClick = async (subjectId: number) => {
     try {
@@ -58,6 +88,7 @@ function Subjects() {
   const handleEdit = (subject: Subject) => {
     setEditingSubject(subject);
     setEditSubjectColor(subject.color || '#f97316');
+    setEditSubjectHabits(subject.habits?.map((h) => h.id) || []);
     setIsEditDialogOpen(true);
   };
 
@@ -87,6 +118,107 @@ function Subjects() {
   });
   const totalTrackedFormatted = `${pad(totalH)}:${pad(totalM)}:${pad(totalS)}`;
 
+  const handleAddSubjectSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!user) return;
+    const formData = new FormData(e.currentTarget);
+    const name = formData.get('name') as string;
+    const hours = Number(formData.get('hours')) || 0;
+    const minutes = Number(formData.get('minutes')) || 0;
+    const seconds = Number(formData.get('seconds')) || 0;
+    const goalWorkSecs = hours * 3600 + minutes * 60 + seconds;
+
+    createSubject.mutate({ name, goalWorkSecs, color: newSubjectColor, habits: newSubjectHabits });
+    setIsAddDialogOpen(false);
+  };
+
+  const handleEditSubjectSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingSubject) return;
+    const formData = new FormData(e.currentTarget);
+    const name = formData.get('name') as string;
+    const hours = Number(formData.get('hours')) || 0;
+    const minutes = Number(formData.get('minutes')) || 0;
+    const seconds = Number(formData.get('seconds')) || 0;
+    const goalWorkSecs = hours * 3600 + minutes * 60 + seconds;
+
+    updateSubjectMutation.mutate({
+      id: editingSubject.id,
+      name,
+      goalWorkSecs,
+      color: editSubjectColor,
+      habits: editSubjectHabits,
+    });
+    setIsEditDialogOpen(false);
+    setEditingSubject(null);
+  };
+
+  const renderColorPicker = (colorState: string, setColorState: (color: string) => void) => (
+    <div className="flex flex-col gap-3">
+      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Subject Color
+      </Label>
+      <div className="flex flex-wrap gap-2">
+        {PRESET_COLORS.map((color) => (
+          <button
+            key={color}
+            type="button"
+            onClick={() => setColorState(color)}
+            className="group relative h-7 w-7 rounded-full border border-black/10 transition-transform hover:scale-110 active:scale-95 flex items-center justify-center"
+            style={{ backgroundColor: color }}
+          >
+            {colorState === color && (
+              <Check className="h-4 w-4 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]" />
+            )}
+            <span className="sr-only">Select color {color}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderHabitSelector = (
+    selectedHabits: number[],
+    setSelectedHabits: (habits: number[]) => void,
+  ) => (
+    <div className="flex flex-col gap-3">
+      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Linked Habits
+      </Label>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {habits.map((habit) => {
+          const isChecked = selectedHabits.includes(habit.id);
+          return (
+            <label
+              key={habit.id}
+              className={cn(
+                'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
+                isChecked
+                  ? 'border-primary bg-primary/10'
+                  : 'bg-muted/10 hover:bg-muted/30 border-muted-foreground/10',
+              )}
+            >
+              <Checkbox
+                checked={isChecked}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    setSelectedHabits([...selectedHabits, habit.id]);
+                  } else {
+                    setSelectedHabits(selectedHabits.filter((id) => id !== habit.id));
+                  }
+                }}
+              />
+              <span className="text-sm font-medium leading-none truncate">{habit.name}</span>
+            </label>
+          );
+        })}
+        {habits.length === 0 && (
+          <span className="text-sm text-muted-foreground col-span-2">No habits available.</span>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <section className="rounded-xl  bg-background p-4">
       <div className="my-4 flex items-start justify-between">
@@ -99,53 +231,82 @@ function Subjects() {
               + Add Subject
             </Button>
           </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Subject</DialogTitle>
+          <DialogContent className="max-w-[450px] lg:max-w-[500px] overflow-hidden p-0 gap-0 border-none shadow-2xl rounded-2xl">
+            <DialogHeader className="p-6 bg-muted/20 pb-4">
+              <DialogTitle className="text-xl font-bold tracking-tight text-foreground">
+                Add New Subject
+              </DialogTitle>
             </DialogHeader>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!user) return;
-                const formData = new FormData(e.currentTarget);
-                const name = formData.get('name') as string;
-                const hours = Number(formData.get('hours')) || 0;
-                const minutes = Number(formData.get('minutes')) || 0;
-                const seconds = Number(formData.get('seconds')) || 0;
-                const goalWorkSecs = hours * 3600 + minutes * 60 + seconds;
-
-                createSubject.mutate({ name, goalWorkSecs, color: newSubjectColor });
-                e.currentTarget.reset();
-                setNewSubjectColor('#f97316');
-                setIsAddDialogOpen(false);
-              }}
-              className="flex flex-col gap-4"
-            >
-              <Input name="name" placeholder="Subject Name" required />
-              <div className="flex flex-col gap-2">
-                <span className="text-sm font-medium">Goal Time</span>
-                <div className="flex items-center gap-2">
-                  <Input name="hours" placeholder="hh" type="number" min={0} />
-                  <span>:</span>
-                  <Input name="minutes" placeholder="mm" type="number" min={0} max={59} />
-                  <span>:</span>
-                  <Input name="seconds" placeholder="ss" type="number" min={0} max={59} />
-                </div>
-              </div>
-              <div className="flex flex-col gap-2">
-                <span className="text-sm font-medium">Subject Color</span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={newSubjectColor}
-                    onChange={(e) => setNewSubjectColor(e.target.value)}
-                    className="w-10 h-10 p-0 border-0 rounded cursor-pointer"
+            <form onSubmit={handleAddSubjectSubmit} className="flex flex-col">
+              <div className="p-6 pt-2 space-y-6 max-h-[60vh] overflow-y-auto scrollbar-hide">
+                <div className="flex flex-col gap-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Name
+                  </Label>
+                  <Input
+                    name="name"
+                    placeholder="Subject Name"
+                    required
+                    className="bg-muted/30 border-muted-foreground/20 focus-visible:ring-primary"
                   />
                 </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Goal Time
+                  </Label>
+                  <div className="flex items-center gap-1 p-1 rounded-lg bg-muted/30 border border-muted-foreground/20 focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1 transition-all w-fit">
+                    <Input
+                      name="hours"
+                      type="number"
+                      min={0}
+                      placeholder="00"
+                      className="w-12 h-8 border-0 bg-transparent text-center focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0"
+                    />
+                    <span className="text-muted-foreground font-medium">:</span>
+                    <Input
+                      name="minutes"
+                      type="number"
+                      min={0}
+                      max={59}
+                      placeholder="00"
+                      className="w-12 h-8 border-0 bg-transparent text-center focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0"
+                    />
+                    <span className="text-muted-foreground font-medium">:</span>
+                    <Input
+                      name="seconds"
+                      type="number"
+                      min={0}
+                      max={59}
+                      placeholder="00"
+                      className="w-12 h-8 border-0 bg-transparent text-center focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0"
+                    />
+                  </div>
+                </div>
+
+                {renderColorPicker(newSubjectColor, setNewSubjectColor)}
+
+                <div className="border-t border-muted-foreground/10 pt-4 mt-2">
+                  {renderHabitSelector(newSubjectHabits, setNewSubjectHabits)}
+                </div>
               </div>
-              <Button type="submit" disabled={createSubject.isPending}>
-                {createSubject.isPending ? 'Adding...' : 'Add'}
-              </Button>
+              <DialogFooter className="p-6 bg-muted/20 border-t border-muted-foreground/5 gap-3 sm:gap-0">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setIsAddDialogOpen(false)}
+                  className="rounded-xl hover:bg-background"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createSubject.isPending}
+                  className="rounded-xl px-8 shadow-lg shadow-primary/20 transition-all active:scale-95"
+                >
+                  {createSubject.isPending ? 'Adding...' : 'Add Subject'}
+                </Button>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
@@ -198,7 +359,13 @@ function Subjects() {
                     className="border-b border-border last:border-b-0  hover:bg-muted/30 transition-colors"
                   >
                     <td className="px-4 py-4 font-medium text-sm text-foreground capitalize">
-                      {subject.name}
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: subject.color || '#f97316' }}
+                        />
+                        {subject.name}
+                      </div>
                     </td>
                     <td className="px-0 py-2">
                       <span
@@ -212,10 +379,13 @@ function Subjects() {
                     </td>
                     <td className="px-4 py-2">
                       <div className="flex items-center gap-3 min-w-40">
-                        <div className="h-1.5 flex-1 rounded-full bg-muted overflow-scroll">
+                        <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-orange-500 transition-all"
-                            style={{ width: `${percent}%` }}
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${percent}%`,
+                              backgroundColor: subject.color || '#f97316',
+                            }}
                           />
                         </div>
                         <span className="w-8 text-right text-xs text-muted-foreground">
@@ -271,89 +441,96 @@ function Subjects() {
       </div>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Subject</DialogTitle>
+        <DialogContent className="max-w-[450px] lg:max-w-[500px] overflow-hidden p-0 gap-0 border-none shadow-2xl rounded-2xl">
+          <DialogHeader className="p-6 bg-muted/20 pb-4">
+            <DialogTitle className="text-xl font-bold tracking-tight text-foreground">
+              Edit Subject
+            </DialogTitle>
           </DialogHeader>
           {editingSubject && (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!editingSubject) return;
-                const formData = new FormData(e.currentTarget);
-                const name = formData.get('name') as string;
-                const hours = Number(formData.get('hours')) || 0;
-                const minutes = Number(formData.get('minutes')) || 0;
-                const seconds = Number(formData.get('seconds')) || 0;
-                const goalWorkSecs = hours * 3600 + minutes * 60 + seconds;
+            <form onSubmit={handleEditSubjectSubmit} className="flex flex-col">
+              <div className="p-6 pt-2 space-y-6 max-h-[60vh] overflow-y-auto scrollbar-hide">
+                <div className="flex flex-col gap-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Name
+                  </Label>
+                  <Input
+                    name="name"
+                    defaultValue={editingSubject.name}
+                    placeholder="Subject Name"
+                    required
+                    className="bg-muted/30 border-muted-foreground/20 focus-visible:ring-primary"
+                  />
+                </div>
 
-                updateSubjectMutation.mutate({
-                  id: editingSubject.id,
-                  name,
-                  goalWorkSecs,
-                  color: editSubjectColor,
-                });
-                setIsEditDialogOpen(false);
-                setEditingSubject(null);
-              }}
-              className="flex flex-col gap-4"
-            >
-              <Input
-                name="name"
-                placeholder="Subject Name"
-                required
-                defaultValue={editingSubject?.name}
-              />
-              <div className="flex flex-col gap-2">
-                <span className="text-sm font-medium">Goal Time</span>
-                <div className="flex items-center gap-2">
-                  <Input
-                    name="hours"
-                    placeholder="hh"
-                    type="number"
-                    min={0}
-                    defaultValue={
-                      ConvertSecsToTimer({ workSecs: editingSubject.goalWorkSecs || 0 }).hours
-                    }
-                  />
-                  <span>:</span>
-                  <Input
-                    name="minutes"
-                    placeholder="mm"
-                    type="number"
-                    min={0}
-                    max={59}
-                    defaultValue={
-                      ConvertSecsToTimer({ workSecs: editingSubject.goalWorkSecs || 0 }).minutes
-                    }
-                  />
-                  <span>:</span>
-                  <Input
-                    name="seconds"
-                    placeholder="ss"
-                    type="number"
-                    min={0}
-                    max={59}
-                    defaultValue={
-                      ConvertSecsToTimer({ workSecs: editingSubject.goalWorkSecs || 0 }).seconds
-                    }
-                  />
+                <div className="flex flex-col gap-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Goal Time
+                  </Label>
+                  <div className="flex items-center gap-1 p-1 rounded-lg bg-muted/30 border border-muted-foreground/20 focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1 transition-all w-fit">
+                    <Input
+                      name="hours"
+                      type="number"
+                      min={0}
+                      defaultValue={
+                        ConvertSecsToTimer({ workSecs: editingSubject.goalWorkSecs || 0 }).hours
+                      }
+                      placeholder="00"
+                      className="w-12 h-8 border-0 bg-transparent text-center focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0"
+                    />
+                    <span className="text-muted-foreground font-medium">:</span>
+                    <Input
+                      name="minutes"
+                      type="number"
+                      min={0}
+                      max={59}
+                      defaultValue={
+                        ConvertSecsToTimer({ workSecs: editingSubject.goalWorkSecs || 0 }).minutes
+                      }
+                      placeholder="00"
+                      className="w-12 h-8 border-0 bg-transparent text-center focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0"
+                    />
+                    <span className="text-muted-foreground font-medium">:</span>
+                    <Input
+                      name="seconds"
+                      type="number"
+                      min={0}
+                      max={59}
+                      defaultValue={
+                        ConvertSecsToTimer({ workSecs: editingSubject.goalWorkSecs || 0 }).seconds
+                      }
+                      placeholder="00"
+                      className="w-12 h-8 border-0 bg-transparent text-center focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0"
+                    />
+                  </div>
+                </div>
+
+                {renderColorPicker(editSubjectColor, setEditSubjectColor)}
+
+                <div className="border-t border-muted-foreground/10 pt-4 mt-2">
+                  {renderHabitSelector(editSubjectHabits, setEditSubjectHabits)}
                 </div>
               </div>
-              <div className="flex flex-col gap-2">
-                <span className="text-sm font-medium">Subject Color</span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={editSubjectColor}
-                    onChange={(e) => setEditSubjectColor(e.target.value)}
-                    className="w-10 h-10 p-0 border-0 rounded cursor-pointer"
-                  />
-                </div>
-              </div>
-              <Button type="submit" disabled={updateSubjectMutation.isPending}>
-                Save
-              </Button>
+              <DialogFooter className="p-6 bg-muted/20 border-t border-muted-foreground/5 gap-3 sm:gap-0">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setEditingSubject(null);
+                  }}
+                  className="rounded-xl hover:bg-background"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={updateSubjectMutation.isPending}
+                  className="rounded-xl px-8 shadow-lg shadow-primary/20 transition-all active:scale-95"
+                >
+                  Save Changes
+                </Button>
+              </DialogFooter>
             </form>
           )}
         </DialogContent>

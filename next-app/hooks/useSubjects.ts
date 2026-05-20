@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { Habit } from './useHabits';
 
 export interface SubjectLog {
   id: number;
@@ -17,6 +18,7 @@ export interface Subject {
   workSecs?: number;
   goalWorkSecs?: number;
   color?: string;
+  habits?: Habit[];
 }
 
 export const useSubjects = () => {
@@ -39,12 +41,19 @@ export const useCreateSubject = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (newSubject: { name: string; goalWorkSecs?: number; color?: string }) => {
+    mutationFn: async (newSubject: {
+      name: string;
+      goalWorkSecs?: number;
+      color?: string;
+      habits?: number[];
+    }) => {
       const { data } = await api.post('/api/subject', newSubject);
       return data.data; // ApiResponse.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subjects'] });
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['habitDashboard'] });
     },
   });
 };
@@ -58,21 +67,26 @@ export const useUpdateSubject = () => {
       name,
       goalWorkSecs,
       color,
+      habits,
     }: {
       id: number;
       name?: string;
       goalWorkSecs?: number;
       color: string;
+      habits?: number[];
     }) => {
       const { data } = await api.patch(`/api/subject/updateSubjectName/${id}`, {
         name,
         goalWorkSecs,
         color,
+        habits,
       });
       return data.data; // ApiResponse.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subjects'] });
+      queryClient.invalidateQueries({ queryKey: ['habits'] });
+      queryClient.invalidateQueries({ queryKey: ['habitDashboard'] });
     },
   });
 };

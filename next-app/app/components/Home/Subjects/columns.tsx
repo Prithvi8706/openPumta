@@ -31,6 +31,7 @@ export type Subject = {
   goalWorkSecs?: number;
   createdAt?: string;
   color?: string;
+  habits?: any[];
 };
 
 export const columns = ({
