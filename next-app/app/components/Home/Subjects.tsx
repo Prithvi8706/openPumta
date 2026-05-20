@@ -1,8 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Subject, columns } from './Subjects/columns';
-import { DataTable } from './Subjects/data-table';
+import { Subject } from './Subjects/columns';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -21,6 +20,14 @@ import {
 } from '@/hooks/useSubjects';
 import { useAuthStore } from '@/store/useAuthStore';
 import { ConvertSecsToTimer } from '@/lib/utils';
+import { IoIosPlay, IoIosPause } from 'react-icons/io';
+import { MoreVertical } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 function Subjects() {
   const { user } = useAuthStore();
@@ -42,7 +49,6 @@ function Subjects() {
   const handlePlayClick = async (subjectId: number) => {
     try {
       await startWork(subjectId);
-      console.log(phase);
       if (phase != 'work') router.push('/pomodoro');
     } catch (error) {
       console.error('Failed to start timer:', error);
@@ -61,14 +67,46 @@ function Subjects() {
     }
   };
 
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  const totalTrackedSecsToday = Subjects.reduce((total: number, subject: Subject) => {
+    const activeLog = subject.subjectLogs?.find((log) => !log.endedAt);
+    const pastSecs = subject.subjectLogs?.reduce((acc, log) => acc + (log.duration || 0), 0) || 0;
+    const activeSecs = activeLog
+      ? Math.floor((new Date().getTime() - new Date(activeLog.startedAt).getTime()) / 1000)
+      : 0;
+    return total + pastSecs + activeSecs;
+  }, 0);
+
+  const {
+    hours: totalH,
+    minutes: totalM,
+    seconds: totalS,
+  } = ConvertSecsToTimer({
+    workSecs: totalTrackedSecsToday,
+  });
+  const totalTrackedFormatted = `${pad(totalH)}:${pad(totalM)}:${pad(totalS)}`;
+
   return (
-    <section className="flex flex-col h-full p-4 overflow-hidden">
-      <div className="flex justify-between items-center mb-4 shrink-0">
-        <h1 className="text-2xl font-bold">Subjects</h1>
+    <section className="rounded-xl border border-border bg-background p-4">
+      <div className="mb-4 flex items-start justify-between">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Subjects</h1>
+
+          <p className="text-sm font-medium text-muted-foreground">Total today</p>
+
+          <div className="flex items-end gap-1.5 pt-1">
+            <span className="font-mono text-2xl font-semibold leading-none tracking-tight text-foreground">
+              {totalTrackedFormatted}
+            </span>
+
+            <span className="pb-0.5 text-xs font-medium text-muted-foreground">tracked</span>
+          </div>
+        </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button size={'sm'} className="font-bold">
-              Add Subject
+            <Button className="rounded-xl bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90 font-medium">
+              + Add Subject
             </Button>
           </DialogTrigger>
           <DialogContent>
@@ -123,16 +161,115 @@ function Subjects() {
         </Dialog>
       </div>
 
-      <div className="flex-1 overflow-hidden">
-        <DataTable
-          columns={columns({
-            toggleTimer: handlePlayClick,
-            runningSubjectId: phase === 'work' && running ? activeSubjectId : null,
-            deleteSubject: handleDelete,
-            handleEdit: handleEdit,
-          })}
-          data={Subjects}
-        />
+      <div className="rounded-lg border border-border">
+        <div className=" overflow-y-auto">
+          <table className="w-full text-lg bg-dashboard-card">
+            <tbody>
+              {Subjects.map((subject: Subject) => {
+                const activeLog = subject.subjectLogs?.find((log) => !log.endedAt);
+                const pastSecs =
+                  subject.subjectLogs?.reduce((acc, log) => acc + (log.duration || 0), 0) || 0;
+                const totalSecs =
+                  pastSecs +
+                  (activeLog
+                    ? Math.floor(
+                        (new Date().getTime() - new Date(activeLog.startedAt).getTime()) / 1000,
+                      )
+                    : 0);
+                const goal = subject.goalWorkSecs || 0;
+                const percent = goal > 0 ? Math.min(100, Math.round((totalSecs / goal) * 100)) : 0;
+
+                const { hours, minutes, seconds } = ConvertSecsToTimer({ workSecs: totalSecs });
+                const isRunning = phase === 'work' && running && activeSubjectId === subject.id;
+
+                let statusText = 'Not started';
+                let statusClass = 'border-border bg-muted text-muted-foreground';
+                if (totalSecs > 0) {
+                  if (goal > 0 && percent >= 100) {
+                    statusText = 'Completed';
+                    statusClass = 'border-green-500/20 bg-green-500/10 text-green-400';
+                  } else if (goal > 0 && percent >= 50) {
+                    statusText = 'Good progress';
+                    statusClass = 'border-blue-500/20 bg-blue-500/10 text-blue-400';
+                  } else {
+                    statusText = 'Started';
+                    statusClass = 'border-primary/20 bg-primary/10 text-primary';
+                  }
+                }
+
+                return (
+                  <tr
+                    key={subject.id}
+                    className="border-b border-border last:border-b-0  hover:bg-muted/30 transition-colors"
+                  >
+                    <td className="px-4 py-4 font-medium text-foreground">{subject.name}</td>
+                    <td className="px-4 py-4 font-mono text-muted-foreground whitespace-nowrap">
+                      {`${pad(hours)}:${pad(minutes)}:${pad(seconds)} / ${goal > 0 ? (goal / 3600).toFixed(1).replace(/\.0$/, '') + 'h' : '0h'}`}
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-3 min-w-40">
+                        <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-orange-500 transition-all"
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
+                        <span className="w-8 text-right text-xs text-muted-foreground">
+                          {percent}%
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2">
+                      <span
+                        className={`inline-flex items-center justify-center rounded-full border px-2 py-0.5 text-[10px] font-medium whitespace-nowrap ${statusClass}`}
+                      >
+                        {statusText}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handlePlayClick(subject.id)}
+                          className="h-8 w-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground p-0 flex items-center justify-center shrink-0"
+                        >
+                          {isRunning ? (
+                            <IoIosPause className="h-4 w-4 text-white" />
+                          ) : (
+                            <IoIosPlay className="h-4 w-4 translate-x-0.5 text-white" />
+                          )}
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-popover border-border">
+                            <DropdownMenuItem onClick={() => handleEdit(subject)}>
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(subject.id)}
+                              className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                            >
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

@@ -57,14 +57,17 @@ export const useUpdateSubject = () => {
       id,
       name,
       goalWorkSecs,
+      color,
     }: {
       id: number;
       name?: string;
       goalWorkSecs?: number;
+      color: string;
     }) => {
       const { data } = await api.patch(`/api/subject/updateSubjectName/${id}`, {
         name,
         goalWorkSecs,
+        color,
       });
       return data.data; // ApiResponse.data
     },
