@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useLayoutStore } from '@/store/useLayoutStore';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: Home },
@@ -27,7 +28,7 @@ const navItems = [
 
 export default function Navigation() {
   const pathname = usePathname();
-  const [isVisible, setIsVisible] = useState(true);
+  const { isSidebarCollapsed, toggleSidebar } = useLayoutStore();
   const { user, fetchUser, loading } = useAuthStore();
 
   useEffect(() => {
@@ -58,29 +59,50 @@ export default function Navigation() {
       {/* Desktop Left Sidebar */}
       <aside
         className={cn(
-          `lg:flex flex-col fixed left-0 top-0 bottom-0 w-64 border-r bg-card/50 backdrop-blur-xl z-40 p-4 `,
-          isVisible && ' w-10! z-0!',
+          'hidden lg:flex flex-col fixed left-0 top-0 bottom-0 border-r bg-card/50 backdrop-blur-xl z-40 p-4 transition-all duration-300',
+          isSidebarCollapsed ? 'w-20' : 'w-64',
         )}
       >
-        <div className="flex justify-between items-center mb-6 py-4">
-          <div className="hidden flex items-center gap-2 px-2  ">
-            <div className=" h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-xl">O</span>
+        <div
+          className={cn(
+            'flex items-center mb-6 py-4 transition-all duration-300',
+            isSidebarCollapsed ? 'justify-center' : 'justify-between',
+          )}
+        >
+          {!isSidebarCollapsed && (
+            <div className="flex items-center gap-2 px-2">
+              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+                <span className="text-primary-foreground font-bold text-xl">O</span>
+              </div>
+              <span className="font-bold text-xl tracking-tight">OpenPumta</span>
             </div>
-            <span className="font-bold text-xl tracking-tight">OpenPumta</span>
-          </div>
-          <Menu onClick={() => setIsVisible((prev) => !prev)} />
+          )}
+          <Menu
+            className="cursor-pointer hover:text-primary transition-colors"
+            onClick={toggleSidebar}
+          />
         </div>
-        <nav className="hidden flex-1 space-y-1">
+
+        <nav className="flex flex-1 flex-col space-y-2">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link key={item.href} href={item.href}>
                 <div
-                  className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all ${isActive ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
+                  className={cn(
+                    'flex items-center rounded-lg transition-all duration-200',
+                    isSidebarCollapsed ? 'justify-center p-3' : 'gap-3 px-3 py-3',
+                    isActive
+                      ? 'bg-primary text-primary-foreground shadow-md'
+                      : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+                  )}
                 >
-                  <item.icon className="h-5 w-5" />
-                  <span className="font-medium text-sm">{item.label}</span>
+                  <item.icon className={cn('h-5 w-5 shrink-0', isActive && 'animate-pulse')} />
+                  {!isSidebarCollapsed && (
+                    <span className="font-medium text-sm whitespace-nowrap overflow-hidden transition-all duration-300">
+                      {item.label}
+                    </span>
+                  )}
                 </div>
               </Link>
             );
@@ -90,28 +112,42 @@ export default function Navigation() {
         <div className="mt-auto pt-4 border-t border-border/50">
           {!loading && !user ? (
             <Link href="/login">
-              <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-all">
-                <LogIn className="h-5 w-5" />
-                <span className="font-medium text-sm">Login</span>
+              <div
+                className={cn(
+                  'flex items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-all duration-200',
+                  isSidebarCollapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2',
+                )}
+              >
+                <LogIn className="h-5 w-5 shrink-0" />
+                {!isSidebarCollapsed && <span className="font-medium text-sm">Login</span>}
               </div>
             </Link>
           ) : (
             user && (
               <Link href="/profile">
-                <div className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-muted-foreground hover:bg-secondary hover:text-foreground">
+                <div
+                  className={cn(
+                    'flex items-center rounded-lg transition-all duration-200 text-muted-foreground hover:bg-secondary hover:text-foreground',
+                    isSidebarCollapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2',
+                  )}
+                >
                   {user.avatarUrl ? (
                     <img
                       src={user.avatarUrl}
                       alt="Avatar"
-                      className="h-6 w-6 rounded-full object-cover"
+                      className="h-6 w-6 rounded-full object-cover shrink-0"
                     />
                   ) : (
-                    <User className="h-6 w-6" />
+                    <User className="h-6 w-6 shrink-0" />
                   )}
-                  <div className="flex flex-col">
-                    <span className="font-medium text-sm text-foreground">{user.name}</span>
-                    <span className="text-xs truncate max-w-[120px]">{user.email}</span>
-                  </div>
+                  {!isSidebarCollapsed && (
+                    <div className="flex flex-col overflow-hidden">
+                      <span className="font-medium text-sm text-foreground truncate">
+                        {user.name}
+                      </span>
+                      <span className="text-xs truncate">{user.email}</span>
+                    </div>
+                  )}
                 </div>
               </Link>
             )

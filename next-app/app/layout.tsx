@@ -2,9 +2,9 @@ import React from 'react';
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono, Inter } from 'next/font/google';
 import './globals.css';
-import Navigation from '@/components/Navigation';
 import Providers from './components/Providers';
 import { Toaster } from 'sonner';
+import LayoutWrapper from './components/LayoutWrapper';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -32,10 +32,7 @@ export default function RootLayout({
     <html lang="en" className={inter.variable}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased dark`}>
         <Providers>
-          <div className="flex min-h-screen">
-            <Navigation />
-            <main className="flex-1 lg:pl-64 pb-16 lg:pb-0">{children}</main>
-          </div>
+          <LayoutWrapper>{children}</LayoutWrapper>
           <Toaster position="top-right" richColors />
         </Providers>
       </body>
