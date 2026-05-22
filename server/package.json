@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "description": "",
   "type": "module",
-  "main": "index.js",
+  "main": "dist/src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --exec tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/src/index.js",
     "seed": "tsx prisma/seed.ts"
   },
   "keywords": [],
