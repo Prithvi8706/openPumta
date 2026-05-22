@@ -1,8 +1,8 @@
-import { prisma } from '../../prisma/prismaClient';
+import { prisma } from '../../prisma/prismaClient.js';
 import { Request, Response } from 'express';
-import asyncHandler from '../utils/asyncHandler';
-import { ApiError } from '../utils/ApiError';
-import { ApiResponse } from '../utils/ApiResponse';
+import asyncHandler from '../utils/asyncHandler.js';
+import { ApiError } from '../utils/ApiError.js';
+import { ApiResponse } from '../utils/ApiResponse.js';
 
 const getAllSubject = asyncHandler(async (req: Request, res: Response) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -318,11 +318,11 @@ const getAllSubjectsWithLogs = asyncHandler(async (req: Request, res: Response) 
     },
   });
 
-  const subjectsWithDuration = subjects.map((subject) => ({
+  const subjectsWithDuration = subjects.map((subject: any) => ({
     ...subject,
-    subjectLogs: subject.subjectLogs.map((log) => ({
+    subjectLogs: subject.subjectLogs.map((log: any) => ({
       ...log,
-      duration: log.endedAt
+      durationSecs: log.endedAt
         ? Math.floor((new Date(log.endedAt).getTime() - new Date(log.startedAt).getTime()) / 1000)
         : 0,
     })),

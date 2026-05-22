@@ -1,18 +1,18 @@
 import express from 'express';
-import { prisma } from '../prisma/prismaClient';
-import userRoute from './routes/user.route';
-import habitRoute from './routes/habit.route';
-import authRoute from './routes/auth.route';
-import subjectRoute from './routes/subject.route';
-import todoRoute from './routes/todo.route';
-import statsRoute from './routes/stats.route';
-import dailyRatingRoute from './routes/dailyRating.route';
-import exportRoute from './routes/export.route';
+import { prisma } from '../prisma/prismaClient.js';
+import userRoute from './routes/user.route.js';
+import habitRoute from './routes/habit.route.js';
+import authRoute from './routes/auth.route.js';
+import subjectRoute from './routes/subject.route.js';
+import todoRoute from './routes/todo.route.js';
+import statsRoute from './routes/stats.route.js';
+import dailyRatingRoute from './routes/dailyRating.route.js';
+import exportRoute from './routes/export.route.js';
 import cors from 'cors';
 import 'dotenv/config';
 import cookieParser from 'cookie-parser';
 import passport from 'passport';
-import { errorHandler } from './middlewares/error.middleware';
+import { errorHandler } from './middlewares/error.middleware.js';
 
 let app = express();
 

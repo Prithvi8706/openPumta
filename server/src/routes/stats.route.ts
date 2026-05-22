@@ -1,6 +1,6 @@
 import express from 'express';
-import passport from '../config/passport';
-import { getDailyTimeline, getDashboardStats } from '../controllers/stats.controller';
+import passport from '../config/passport.js';
+import { getDailyTimeline, getDashboardStats } from '../controllers/stats.controller.js';
 
 const router = express.Router();
 

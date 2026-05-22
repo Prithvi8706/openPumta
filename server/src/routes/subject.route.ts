@@ -1,5 +1,5 @@
 import express from 'express';
-import passport from '../config/passport';
+import passport from '../config/passport.js';
 import {
   getAllSubject,
   createSubject,
@@ -10,7 +10,7 @@ import {
   getSubjectLogs,
   getAllSubjectsWithLogs,
   getDashboardData,
-} from '../controllers/subject.controller';
+} from '../controllers/subject.controller.js';
 
 const router = express.Router();
 

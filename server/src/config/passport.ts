@@ -2,8 +2,8 @@ import { Express } from 'express';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt';
-import { prisma } from '../../prisma/prismaClient';
-import { ApiError } from '../utils/ApiError';
+import { prisma } from '../../prisma/prismaClient.js';
+import { ApiError } from '../utils/ApiError.js';
 import 'dotenv/config';
 
 const backendUrl = process.env.BACKEND_URL || 'http://localhost:4000';

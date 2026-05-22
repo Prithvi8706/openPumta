@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
-import { prisma } from '../../prisma/prismaClient';
-import asyncHandler from '../utils/asyncHandler';
-import { ApiError } from '../utils/ApiError';
-import { ApiResponse } from '../utils/ApiResponse';
+import { prisma } from '../../prisma/prismaClient.js';
+import asyncHandler from '../utils/asyncHandler.js';
+import { ApiError } from '../utils/ApiError.js';
+import { ApiResponse } from '../utils/ApiResponse.js';
 
 const exportUserData = asyncHandler(async (req: Request, res: Response) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,13 +60,13 @@ Generated: ${exportData.exportedAt}
 User: ${exportData.user.name} (${exportData.user.email})
 
 -- Subjects (${exportData.subjects.length}) --
-${exportData.subjects.map((s) => `- ${s.name} (Goal: ${s.goalWorkSecs / 3600} hrs)`).join('\n')}
+${exportData.subjects.map((s: any) => `- ${s.name} (Goal: ${s.goalWorkSecs / 3600} hrs)`).join('\n')}
 
 -- Habits (${exportData.habits.length}) --
-${exportData.habits.map((h) => `- ${h.name} (Logs: ${h.log.length})`).join('\n')}
+${exportData.habits.map((h: any) => `- ${h.name} (Logs: ${h.log.length})`).join('\n')}
 
 -- Daily Ratings (${exportData.dailyRatings.length}) --
-${exportData.dailyRatings.map((d) => `- [${d.date.toISOString().split('T')[0]}] Rating: ${d.rating}/5`).join('\n')}
+${exportData.dailyRatings.map((d: any) => `- [${d.date.toISOString().split('T')[0]}] Rating: ${d.rating}/5`).join('\n')}
     `.trim();
 
     res.setHeader('Content-disposition', 'attachment; filename=openpumta-export.txt');

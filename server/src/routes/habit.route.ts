@@ -1,5 +1,5 @@
 import express from 'express';
-import passport from '../config/passport';
+import passport from '../config/passport.js';
 import {
   getAllHabits,
   createHabit,
@@ -10,7 +10,7 @@ import {
   getAllHabitsWithLogs,
   getHabitDashboardData,
   toggleHabitCompletion,
-} from '../controllers/habit.controller';
+} from '../controllers/habit.controller.js';
 
 const router = express.Router();
 

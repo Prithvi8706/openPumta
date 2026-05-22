@@ -1,8 +1,8 @@
-import { prisma } from '../../prisma/prismaClient';
+import { prisma } from '../../prisma/prismaClient.js';
 import { Request, Response } from 'express';
-import asyncHandler from '../utils/asyncHandler';
-import { ApiError } from '../utils/ApiError';
-import { ApiResponse } from '../utils/ApiResponse';
+import asyncHandler from '../utils/asyncHandler.js';
+import { ApiError } from '../utils/ApiError.js';
+import { ApiResponse } from '../utils/ApiResponse.js';
 
 const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
   const users = await prisma.user.findMany({

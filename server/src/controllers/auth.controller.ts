@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import asyncHandler from '../utils/asyncHandler';
-import { ApiError } from '../utils/ApiError';
+import asyncHandler from '../utils/asyncHandler.js';
+import { ApiError } from '../utils/ApiError.js';
 import jwt from 'jsonwebtoken';
 
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';

@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
-import { prisma } from '../../prisma/prismaClient';
-import asyncHandler from '../utils/asyncHandler';
-import { ApiResponse } from '../utils/ApiResponse';
-import { ApiError } from '../utils/ApiError';
+import { prisma } from '../../prisma/prismaClient.js';
+import asyncHandler from '../utils/asyncHandler.js';
+import { ApiResponse } from '../utils/ApiResponse.js';
+import { ApiError } from '../utils/ApiError.js';
 
 const getDailyTimeline = asyncHandler(async (req: Request, res: Response) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -53,7 +53,7 @@ const getDailyTimeline = asyncHandler(async (req: Request, res: Response) => {
 
   // Consolidate into a single timeline
   const timeline = [
-    ...subjectLogs.map((log) => ({
+    ...subjectLogs.map((log: any) => ({
       id: `subject-${log.id}`,
       type: 'subject',
       name: log.subject.name,
@@ -63,7 +63,7 @@ const getDailyTimeline = asyncHandler(async (req: Request, res: Response) => {
         ? Math.floor((new Date(log.endedAt).getTime() - new Date(log.startedAt).getTime()) / 1000)
         : 0,
     })),
-    ...habitLogs.map((log) => ({
+    ...habitLogs.map((log: any) => ({
       id: `habit-${log.id}`,
       type: 'habit',
       name: log.habit.name,
@@ -73,7 +73,7 @@ const getDailyTimeline = asyncHandler(async (req: Request, res: Response) => {
         ? Math.floor((new Date(log.endedAt).getTime() - new Date(log.startedAt).getTime()) / 1000)
         : 0,
     })),
-    ...toDoLogs.map((log) => ({
+    ...toDoLogs.map((log: any) => ({
       id: `todo-${log.id}`,
       type: 'todo',
       name: log.toDo?.title || 'Unknown Task',

@@ -1,8 +1,8 @@
-import { prisma } from '../../prisma/prismaClient';
+import { prisma } from '../../prisma/prismaClient.js';
 import { Request, Response } from 'express';
-import asyncHandler from '../utils/asyncHandler';
-import { ApiError } from '../utils/ApiError';
-import { ApiResponse } from '../utils/ApiResponse';
+import asyncHandler from '../utils/asyncHandler.js';
+import { ApiError } from '../utils/ApiError.js';
+import { ApiResponse } from '../utils/ApiResponse.js';
 
 const createOrUpdateDailyRating = asyncHandler(async (req: Request, res: Response) => {
   const { rating, description } = req.body || {};
@@ -109,16 +109,18 @@ const getDailyRatingStats = asyncHandler(async (req: Request, res: Response) => 
   const sevenDaysAgo = new Date(today);
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  const last7DaysRatings = last21DaysRatings.filter((r) => r.date >= sevenDaysAgo);
+  const last7DaysRatings = last21DaysRatings.filter((r: any) => r.date >= sevenDaysAgo);
 
   const weeklyAverage =
     last7DaysRatings.length > 0
-      ? last7DaysRatings.reduce((acc, curr) => acc + curr.rating, 0) / last7DaysRatings.length
+      ? last7DaysRatings.reduce((acc: number, curr: any) => acc + curr.rating, 0) /
+        last7DaysRatings.length
       : 0;
 
   const twentyOneDayAverage =
     last21DaysRatings.length > 0
-      ? last21DaysRatings.reduce((acc, curr) => acc + curr.rating, 0) / last21DaysRatings.length
+      ? last21DaysRatings.reduce((acc: number, curr: any) => acc + curr.rating, 0) /
+        last21DaysRatings.length
       : 0;
 
   const differenceFromYesterday =

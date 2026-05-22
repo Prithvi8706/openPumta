@@ -1,5 +1,5 @@
 import express from 'express';
-import passport from '../config/passport';
+import passport from '../config/passport.js';
 import {
   getAllToDos,
   createToDo,
@@ -7,7 +7,7 @@ import {
   deleteToDo,
   startToDoLog,
   endToDoLog,
-} from '../controllers/todo.controller';
+} from '../controllers/todo.controller.js';
 
 const router = express.Router();
 

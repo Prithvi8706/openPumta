@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { ApiError } from '../utils/ApiError';
-import { Prisma } from '../../generated/prisma/client';
+import { ApiError } from '../utils/ApiError.js';
+import { Prisma } from '../../generated/prisma/client.js';
 
 const errorHandler = (err: any, req: Request, res: Response, _next: NextFunction) => {
   let error = err;

@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
-import { prisma } from '../../prisma/prismaClient';
-import asyncHandler from '../utils/asyncHandler';
-import { ApiResponse } from '../utils/ApiResponse';
-import { ApiError } from '../utils/ApiError';
+import { prisma } from '../../prisma/prismaClient.js';
+import asyncHandler from '../utils/asyncHandler.js';
+import { ApiResponse } from '../utils/ApiResponse.js';
+import { ApiError } from '../utils/ApiError.js';
 
 const getAllHabits = asyncHandler(async (req: Request, res: Response) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

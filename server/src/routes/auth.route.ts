@@ -1,6 +1,6 @@
 import express from 'express';
-import passport from '../config/passport';
-import { googleCallback, getCurrentUser, logout } from '../controllers/auth.controller';
+import passport from '../config/passport.js';
+import { googleCallback, getCurrentUser, logout } from '../controllers/auth.controller.js';
 
 const router = express.Router();
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
