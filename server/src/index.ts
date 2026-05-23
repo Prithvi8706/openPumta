@@ -31,7 +31,9 @@ app.listen(process.env.PORT || 4000, () => {
   console.log(`Running on http://localhost:${process.env.PORT}`);
 });
 // app.route;
-app.get('/', async (req, res) => res.send(await prisma.user.findMany()));
+app.get('/', async (req: express.Request, res: express.Response) =>
+  res.send(await prisma.user.findMany()),
+);
 app.use('/api/users', userRoute);
 app.use('/api/subject', subjectRoute);
 app.use('/api/habits', habitRoute);

@@ -58,7 +58,7 @@ passport.use(
       jwtFromRequest: cookieExtractor,
       secretOrKey: process.env.JWT_SECRET || 'secret',
     },
-    async (jwtPayload, done) => {
+    async (jwtPayload: any, done: (error: any, user?: any, info?: any) => void) => {
       try {
         const user = await prisma.user.findUnique({
           where: { id: jwtPayload.id },

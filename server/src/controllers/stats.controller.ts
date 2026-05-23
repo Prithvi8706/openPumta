@@ -123,7 +123,7 @@ const getDashboardStats = asyncHandler(async (req: Request, res: Response) => {
     focusTimeByDate[d.toISOString().split('T')[0]] = 0;
   }
 
-  recentSubjectLogs.forEach((log) => {
+  recentSubjectLogs.forEach((log: any) => {
     if (!log.endedAt) return;
     const dateStr = log.startedAt.toISOString().split('T')[0];
     if (focusTimeByDate[dateStr] !== undefined) {
