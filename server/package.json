@@ -7,7 +7,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --exec tsx src/index.ts",
-    "prebuild": "prisma generate",
+    "prebuild": "npx prisma generate",
     "build": "tsc",
     "start": "node dist/src/index.js",
     "seed": "tsx prisma/seed.ts"
@@ -15,7 +15,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.25.0",
+  "packageManager": "pnpm@10.19.0",
   "dependencies": {
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
